@@ -478,12 +478,12 @@
                     })
                 }
                 if (data_type == 'census') {
-                    var csv_file_path = '/data/' + data_type + '/' + time + '.csv';
+                    var csv_file_path = 'https://raw.githubusercontent.com/aquawill/here_js_local_csv_rendering_demo/master/data/' + data_type + '/' + time + '.csv';
                     await census_csv_parser(csv_file_path);
                     document.getElementById('text_box').innerHTML = '';
                 }
                 else if (data_type == 'drug') {
-                    var csv_file_path = '/data/' + data_type + '/' + time + '.csv';
+                    var csv_file_path = 'https://raw.githubusercontent.com/aquawill/here_js_local_csv_rendering_demo/master/data/' + data_type + '/' + time + '.csv';
                     await drug_csv_parser(csv_file_path);
                     document.getElementById('text_box').innerHTML = '';
                 }
