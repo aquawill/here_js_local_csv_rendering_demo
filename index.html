@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <link rel="stylesheet" type="text/css" href="https://js.api.here.com/v3/3.0/mapsjs-ui.css?dp-version=1533195059" />
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-core.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-service.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-ui.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-mapevents.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-clustering.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.0/mapsjs-data.js"></script>
+    <script type="text/javascript" src="./script/papaparse.min.js"></script>
+    <style>
+        html,
+        body {
+            padding: 0;
+            margin: 0;
+        }
+        
+        html,
+        body,
+        #map {
+            height: 100%;
+            width: 100vw;
+        }
+    </style>
+</head>
+
+<body onresize="resize()" bgcolor="#000000">
+    <div id="searchbar" style=" position: absolute; top: 20px; z-index: 1000; left: 20px; ">
+        <input id="geocoder_box" type="text" style="font-size: 16px;" placeholder="搜尋行政區、道路、地址" maxlength="50" size="40"> </div>
+    <div id="text_box" style=" position: absolute; top: 20px; z-index: 1000; left: 500px; "> </div>
+    <div style=" position: absolute; top: 60px; z-index: 1000; left: 20px; ">
+        <label><font color="white">選擇資料</font></label>
+        <select id="data_type_selection" onchange="make_time_selection()">
+            <option value="0">請選擇</option>
+            <option value="census">人口統計</option>
+            <option value="drug">毒品犯罪統計</option>
+        </select>
+        <label><font color="white">選擇時間</font></label>
+        <select id="time_selection" onchange="filter_application()"> </select>
+        <script type="text/javascript" charset="UTF-8">
+            function make_time_selection() {
+                var data_type = document.getElementById('data_type_selection').value;
+                document.getElementById('time_selection').innerHTML = '';
+                if (data_type == 'census') {
+                    document.getElementById('time_selection').options.add(new Option('請選擇', '0'));
+                    document.getElementById('time_selection').options.add(new Option('106', '106'));
+                    document.getElementById('time_selection').options.add(new Option('105', '105'));
+                    document.getElementById('time_selection').options.add(new Option('104', '104'));
+                    document.getElementById('time_selection').options.add(new Option('103', '103'));
+                    document.getElementById('time_selection').options.add(new Option('102', '102'));
+                }
+                else if (data_type == 'drug') {
+                    document.getElementById('time_selection').options.add(new Option('請選擇', '0'));
+                    document.getElementById('time_selection').options.add(new Option('10701-10703', '10701-10703'));
+                    document.getElementById('time_selection').options.add(new Option('10610-10612', '10610-10612'));
+                    document.getElementById('time_selection').options.add(new Option('10607-10609', '10607-10609'));
+                    document.getElementById('time_selection').options.add(new Option('10604-10606', '10604-10606'));
+                    document.getElementById('time_selection').options.add(new Option('10601-10603', '10601-10603'));
+                    document.getElementById('time_selection').options.add(new Option('10510-10512', '10510-10512'));
+                    document.getElementById('time_selection').options.add(new Option('10507-10509', '10507-10509'));
+                    document.getElementById('time_selection').options.add(new Option('10504-10506', '10504-10506'));
+                    document.getElementById('time_selection').options.add(new Option('10501-10503', '10501-10503'));
+                    document.getElementById('time_selection').options.add(new Option('10410-10412', '10410-10412'));
+                    document.getElementById('time_selection').options.add(new Option('10407-10409', '10407-10409'));
+                    document.getElementById('time_selection').options.add(new Option('10404-10406', '10404-10406'));
+                    document.getElementById('time_selection').options.add(new Option('10401-10403', '10401-10403'));
+                }
+            };
+            async function filter_application() {
+                var data_type = document.getElementById('data_type_selection').value;
+                var time = document.getElementById('time_selection').value;
+                if (data_type == 'census' || data_type == 'drug') {
+                    console.log(data_type, time);
+                    main(data_type, time);
+                }
+            }
+        </script>
+    </div>
+    <div id="map">
+        <script type="text/javascript" charset="UTF-8">
+            document.getElementById('text_box').innerHTML = '';
+            var he_appid = 'NXqTq9BXXeEiR4yuXfjj';
+            var he_appcode = '3NpseRCnS25FaujWRdthVQ';
+            var platform = new H.service.Platform({
+                app_id: he_appid
+                , app_code: he_appcode
+                , useHTTPS: true
+                , useCIT: true
+            });
+            var geocoder = platform.getGeocodingService();
+            //var router = platform.getRoutingService();
+            //var pde_service = platform.getPlatformDataService();
+            var cle_service = platform.getCustomLocationService();
+            var pixelRatio = window.devicePixelRatio || 1;
+            var ppi = pixelRatio === 1 ? 72 : 320
+            var tile_size = pixelRatio === 1 ? 256 : 512
+            var defaultLayers = platform.createDefaultLayers({
+                tileSize: tile_size
+                , ppi: ppi
+            , });
+            var map = new H.Map(document.getElementById('map'), defaultLayers.normal.basenight, {
+                center: {
+                    lat: 23.993011685468215
+                    , lng: 120.9901254140625
+                }
+                , zoom: 8
+                , pixelRatio: pixelRatio
+            , });
+            var town_carto_group = new H.map.Group();
+            map.addObject(town_carto_group);
+            var selected_town_carto_group = new H.map.Group();
+            map.addObject(selected_town_carto_group);
+            var behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+            navigator.geolocation.getCurrentPosition(function (location) {
+                var gps_location_marker = new H.map.Circle({
+                    lat: location.coords.latitude
+                    , lng: location.coords.longitude
+                }, 5, {
+                    style: {
+                        strokeColor: 'rgba(245, 117, 249, 0.3)'
+                        , lineWidth: 2
+                        , fillColor: 'rgba(184, 197, 252, 0.5)'
+                    }
+                });
+                var gps_location_marker_radius = new H.map.Circle({
+                    lat: location.coords.latitude
+                    , lng: location.coords.longitude
+                }, location.coords.accuracy, {
+                    style: {
+                        strokeColor: 'rgba(245, 117, 249, 0.3)'
+                        , lineWidth: 2
+                        , fillColor: 'rgba(250, 184, 252, 0.3)'
+                    }
+                });
+                gps_location_marker_radius.setZIndex(0);
+                gps_location_marker.setZIndex(10);
+                map.addObject(gps_location_marker_radius);
+                map.addObject(gps_location_marker);
+                map.setCenter({
+                    lat: location.coords.latitude
+                    , lng: location.coords.longitude
+                });
+            });
+            var ui = H.ui.UI.createDefault(map, defaultLayers);
+            ui.removeControl('mapsettings');
+            document.getElementById('searchbar').addEventListener('keypress', onSearch)
+
+            function onSearch(e) {
+                var keyCode = null;
+                if (e.which) {
+                    keyCode = e.which;
+                }
+                else if (e.keyCode) {
+                    keyCode = e.keyCode;
+                }
+                if (keyCode == 13) {
+                    var geocoder_string = e.srcElement.value;
+                    var geocodingParams = {
+                        searchText: geocoder_string
+                        , country: 'TWN'
+                    };
+                    geocoder.geocode(geocodingParams, show_geocode_result, function (e) {
+                        console.log(e);
+                    });
+                }
+            }
+            var xmlHttp;
+
+            function httpGet(theUrl) {
+                xmlHttp = new XMLHttpRequest();
+                xmlHttp.open("GET", theUrl, false); // false for synchronous request
+                xmlHttp.send(null);
+                return xmlHttp.responseText;
+            };
+
+            function getURL(URL) {
+                return new Promise(function (resolve, reject) {
+                    var req = new XMLHttpRequest();
+                    req.open('GET', URL, true);
+                    req.onload = function () {
+                        if (req.status === 200) {
+                            resolve(req.responseText);
+                        }
+                        else {
+                            reject(new Error(req.statusText));
+                        }
+                    };
+                    req.onerror = function () {
+                        reject(new Error(req.statusText));
+                    };
+                    req.send();
+                });
+            }
+            var bubble;
+
+            function show_geocode_result(result) {
+                console.log(result);
+                if (result.Response.View.length > 0) {
+                    var location = result.Response.View[0].Result[0]
+                        , display_position = location['Location']['DisplayPosition']
+                        , lat = display_position['Latitude']
+                        , lng = display_position['Longitude'];
+                    map.setCenter({
+                        lat: lat
+                        , lng: lng
+                    });
+                }
+                else {
+                    window.alert('查無此地址資料，請再次嘗試。');
+                }
+            };
+
+            function purge_bubble() {
+                if (ui.getBubbles().length > 0) {
+                    for (i = 0; ui.getBubbles().length; i++) {
+                        ui.removeBubble(ui.getBubbles()[i]);
+                    }
+                }
+            }
+
+            function img_icon(url, center) {
+                var icon_object = new H.map.Icon(url, {
+                    anchor: {
+                        x: center
+                        , y: center
+                    }
+                });
+                return icon_object;
+            }
+
+            function city_style(obj) {}
+
+            function rev_geocoder(loc) {
+                var reverseGeocodingParameters = {
+                    prox: loc.lat + ',' + loc.lng + ',100'
+                    , mode: 'retrieveAddresses'
+                    , maxresults: 1
+                };
+                geocoder.reverseGeocode(reverseGeocodingParameters, show_geocode_result, function (e) {
+                    alert(e);
+                });
+            }
+
+            function resize() {
+                var view_port = map.getViewPort();
+                view_port.resize();
+            }
+            var town_list = [];
+
+            function get_layer() {
+                return new Promise(function (resolve) {
+                    console.log('loading cle');
+                    document.getElementById('text_box').innerHTML = '<mark>下載鄉鎮市區邊界圖層中</mark>';
+                    cle_service.request(H.service.extension.customLocation.Service.EntryPoint.SEARCH_ALL, H.service.extension.customLocation.Service.EntryPointType.JSON, {
+                        layer_id: 'TWN_CITY'
+                    }, function (r) {
+                        for (i = 0; i < r['geometries'].length; i++) {
+                            var attributes = r['geometries'][i]['attributes']
+                                , full_county_name = attributes['COUNTYNAME']
+                                , full_town_name = attributes['TOWNNAME']
+                                , county_name = attributes['COUNTYNAME'].slice(0, 2)
+                                , town_name = attributes['TOWNNAME'].slice(0, attributes['TOWNNAME'].length - 1)
+                                , wkt = r['geometries'][i]['geometry'];
+                            town_list.push({
+                                county_name: county_name
+                                , town_name: town_name
+                                , full_county_name: full_county_name
+                                , full_town_name: full_town_name
+                                , wkt: wkt
+                            });
+                        }
+                        resolve();
+                    }, console.error)
+                });
+            }
+
+            function get_color(value) {
+                value = parseInt(value);
+                switch (value) {
+                case 18:
+                    return 'RGBA(248, 12, 18, 0.5)'
+                    break;
+                case 17:
+                    return 'RGBA(238, 17, 0, 0.5)'
+                    break;
+                case 16:
+                    return 'RGBA(255, 51, 17, 0.5)'
+                    break;
+                case 15:
+                    return 'RGBA(255, 68, 34, 0.5)'
+                    break;
+                case 14:
+                    return 'RGBA(255, 102, 68, 0.5)'
+                    break;
+                case 13:
+                    return 'RGBA(255, 153, 51, 0.5)'
+                    break;
+                case 12:
+                    return 'RGBA(254, 174, 45, 0.5)'
+                    break;
+                case 11:
+                    return 'RGBA(204, 187, 51, 0.5)'
+                    break;
+                case 10:
+                    return 'RGBA(208, 195, 16, 0.5)'
+                    break;
+                case 9:
+                    return 'RGBA(170, 204, 34, 0.5)'
+                    break;
+                case 8:
+                    return 'RGBA(105, 208, 37, 0.5)'
+                    break;
+                case 7:
+                    return 'RGBA(34, 204, 170, 0.5)'
+                    break;
+                case 6:
+                    return 'RGBA(18, 189, 185, 0.5)'
+                    break;
+                case 5:
+                    return 'RGBA(17, 170, 187, 0.5)'
+                    break;
+                case 4:
+                    return 'RGBA(68, 68, 221, 0.5)'
+                    break;
+                case 3:
+                    return 'RGBA(51, 17, 187, 0.5)'
+                    break;
+                case 2:
+                    return 'RGBA(59, 12, 189, 0.5)'
+                    break;
+                case 1:
+                    return 'RGBA(68, 34, 153, 0.5)'
+                    break;
+                case 0:
+                    return 'RGBA(55,55,55, 0.5)'
+                    break;
+                }
+            }
+            async function main(data_type, time) {
+                town_carto_group.removeAll();
+                if (town_list.length == 0) {
+                    await get_layer();
+                    console.log('cle loaded')
+                }
+
+                function census_csv_parser(csv) {
+                    var population_density_list = []
+                        , census_list = [];
+                    return new Promise(function (resolve) {
+                        Papa.parse(csv, {
+                            header: true
+                            , download: true
+                            , complete: function (results) {
+                                var data = results.data;
+                                for (i = 0; i < data.length; i++) {
+                                    var area = data[i]['area']
+                                        , people_total = parseFloat(data[i]['people_total'])
+                                        , population_density = parseFloat(data[i]['population_density'])
+                                        , site_id = data[i]['site_id'].replace('　', '')
+                                        , county_name = site_id.slice(0, 2)
+                                        , town_name = site_id.slice(3, site_id.length - 1)
+                                        , statistic_yyy = data[i]['statistic_yyy'];
+                                    if (!isNaN(people_total) && !isNaN(population_density)) {
+                                        census_list.push({
+                                            area: area
+                                            , site_id: site_id
+                                            , people_total: people_total
+                                            , population_density: population_density
+                                            , county_name: county_name
+                                            , town_name: town_name
+                                            , statistic_yyy: statistic_yyy
+                                        })
+                                        population_density_list.push(parseInt(population_density));
+                                    }
+                                }
+                                var max_population_density = Math.max.apply(null, population_density_list);
+                                for (j = 0; j < town_list.length; j++) {
+                                    for (k = 0; k < census_list.length; k++) {
+                                        if (town_list[j]['county_name'] == census_list[k]['county_name']) {
+                                            if (town_list[j]['town_name'] == census_list[k]['town_name']) {
+                                                var color = get_color(parseFloat((Math.sqrt(census_list[k]['population_density']) / Math.sqrt(max_population_density)) * 18));
+                                                var town_carto = new H.map.Polygon(H.util.wkt.toGeometry(town_list[j]['wkt']), {
+                                                    style: {
+                                                        strokeColor: 'RGBA(200, 200, 200, 0.3)'
+                                                        , fillColor: color
+                                                        , lineWidth: 1
+                                                    }
+                                                });
+                                                town_carto.setData({
+                                                    html: census_list[k]['site_id'] + '<br>面積：' + census_list[k]['area'] + '平方公里<br>人口數：' + census_list[k]['people_total'] + '人<br>人口密度：' + census_list[k]['population_density'] + '人/平方公里'
+                                                    , wkt: town_list[j]['wkt']
+                                                });
+                                                town_carto.addEventListener('contextmenu', select_town);
+                                                town_carto_group.addObject(town_carto);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        resolve();
+                    })
+                }
+
+                function drug_csv_parser(csv) {
+                    console.log('start processing drug data');
+                    var drug_list = [];
+                    var drug_statistics = [];
+                    return new Promise(function (resolve) {
+                        Papa.parse(csv, {
+                            header: true
+                            , download: true
+                            , complete: function (results) {
+                                var data = results.data;
+                                for (i = 0; i < data.length; i++) {
+                                    if (data[i]['no'] != '') {
+                                        var kind = data[i]['kind']
+                                            , no = data[i]['no']
+                                            , oc_addr = data[i]['oc_addr'].replace('台', '臺')
+                                            , county_name = oc_addr.slice(0, 2)
+                                            , town_name = oc_addr.slice(3, oc_addr.length - 1)
+                                            , oc_dt = data[i]['oc_dt']
+                                        drug_list.push({
+                                            kind: kind
+                                            , oc_addr: oc_addr
+                                            , county_name: county_name
+                                            , town_name: town_name
+                                        });
+                                    }
+                                }
+                                var drug_total_list = [];
+                                for (j = 0; j < town_list.length; j++) {
+                                    var total = 0;
+                                    for (k = 0; k < drug_list.length; k++) {
+                                        if (town_list[j]['county_name'] == drug_list[k]['county_name']) {
+                                            if (town_list[j]['town_name'] == drug_list[k]['town_name']) {
+                                                total += 1;
+                                            }
+                                        }
+                                    }
+                                    drug_statistics.push({
+                                        county_name: town_list[j]['county_name']
+                                        , town_name: town_list[j]['town_name']
+                                        , drug_total: total
+                                    });
+                                    drug_total_list.push(total);
+                                }
+                                var max_drug_total = Math.max.apply(null, drug_total_list);
+                                for (j = 0; j < town_list.length; j++) {
+                                    for (k = 0; k < drug_statistics.length; k++) {
+                                        if (town_list[j]['county_name'] == drug_statistics[k]['county_name']) {
+                                            if (town_list[j]['town_name'] == drug_statistics[k]['town_name']) {
+                                                var color = get_color(parseFloat((Math.sqrt(drug_statistics[k]['drug_total']) / Math.sqrt(max_drug_total)) * 18));
+                                                var town_carto = new H.map.Polygon(H.util.wkt.toGeometry(town_list[j]['wkt']), {
+                                                    style: {
+                                                        strokeColor: 'RGBA(200, 200, 200, 0.3)'
+                                                        , fillColor: color
+                                                        , lineWidth: 1
+                                                    }
+                                                });
+                                                town_carto.setData({
+                                                    html: town_list[j]['full_county_name'] + '<br>' + town_list[j]['full_town_name'] + '<br>毒品案件數：' + drug_statistics[k]['drug_total']
+                                                    , wkt: town_list[j]['wkt']
+                                                });
+                                                town_carto.addEventListener('contextmenu', select_town);
+                                                town_carto_group.addObject(town_carto);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        console.log('finished!');
+                        resolve();
+                    })
+                }
+                if (data_type == 'census') {
+                    var csv_file_path = '/data/' + data_type + '/' + time + '.csv';
+                    await census_csv_parser(csv_file_path);
+                    document.getElementById('text_box').innerHTML = '';
+                }
+                else if (data_type == 'drug') {
+                    var csv_file_path = '/data/' + data_type + '/' + time + '.csv';
+                    await drug_csv_parser(csv_file_path);
+                    document.getElementById('text_box').innerHTML = '';
+                }
+            }
+
+            function select_town(evt) {
+                selected_town_carto_group.removeAll();
+                if (ui.getBubbles().length > 0) {
+                    for (i = 0; i < ui.getBubbles().length; i++) {
+                        ui.removeBubble(ui.getBubbles()[i]);
+                    }
+                }
+                var coord = map.screenToGeo(evt.viewportX, evt.viewportY);
+                var selected_town = new H.map.Polygon(H.util.wkt.toGeometry(evt.target.getData().wkt), {
+                    style: {
+                        strokeColor: 'RGBA(255, 0, 0, 1)'
+                        , fillColor: 'RGBA(0, 0, 0, 0)'
+                        , lineWidth: 2
+                    }
+                })
+                selected_town_carto_group.addObject(selected_town);
+                selected_town.addEventListener('tap', function () {
+                    selected_town_carto_group.removeAll();
+                })
+                var bubble = new H.ui.InfoBubble(coord, {
+                    content: evt.target.getData().html
+                });
+                ui.addBubble(bubble);
+            }
+            //town_carto_group.addEventListener('contextmenu', select_town);
+            map.addEventListener('mapviewchangeend', function () {
+                if (map.getZoom() < 8) {
+                    map.setZoom(8);
+                }
+            });
+        </script>
+    </div>
+</body>
+
+</html>
