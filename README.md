@@ -8,9 +8,9 @@ Data source:
 
 Powered byHERE Location Services:
 
-HERE JS API (Interactive Map and Heatmap)
+HERE JS API (Interactive Map and Rendering)
     * https://developer.here.com/develop/javascript-api
-HERE Custom Location Extension (Store Accident Data)
+HERE Custom Location Extension (Store Shapefile of Town/City Borders)
     * https://developer.here.com/documentation/maps/topics/cle.html
 HERE Geocoder (Location Search)
     * https://developer.here.com/documentation/maps/topics/geocoding.html
